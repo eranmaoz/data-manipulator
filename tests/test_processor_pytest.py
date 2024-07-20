@@ -1,3 +1,4 @@
+import os
 import pytest
 import json
 from json_processor.processor import DataProcessor
@@ -16,6 +17,18 @@ def create_json(tmp_path):
         return file_path
 
     return _create_json
+
+
+@pytest.fixture
+def load_100_values_file_test_data():
+    # Relative path from the test file to the data directory
+    file_path = os.path.join(os.path.dirname(__file__), '../data/100_values.json')
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"The file at path {file_path} does not exist.")
+
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    return data
 
 
 # Test for processing valid JSON data
@@ -130,6 +143,22 @@ def test_list_duplicates_removal(create_json, tmp_path):
 
     assert processed_data["list"] == ["apple", "banana", "orange"]
 
+
+def test_multiple_list_duplicates_removal(create_json, tmp_path):
+    data = {
+        "list": ["banana", "apple", "banana","banana","banana","banana","banana", "apple", "orange", "banana"]
+    }
+    list_json = create_json(data, "list.json")
+
+    processor = DataProcessor(list_json)
+    processor.process_data()
+    output_file_path = tmp_path / "processed_list.json"
+    processor.save_processed_data(output_file_path)
+
+    with output_file_path.open('r') as file:
+        processed_data = json.load(file)
+
+    assert processed_data["list"] == ["banana", "apple","orange"]
 
 # Test for removing duplicates from lists
 def test_list_preserves_case_sensitivity_and_duplicates(create_json, tmp_path):
@@ -273,3 +302,45 @@ def test_empty_lists_and_dicts(create_json, tmp_path):
     assert processed_data["non_empty_list"] == [1, 2, 3]
     assert processed_data["non_empty_dict"] == {"key": "value"}
     assert processed_data["text"] == "dcba"
+
+
+def test_data_processing_for_100_values_file(load_100_values_file_test_data, tmp_path):
+    # Load the data from the fixture
+    data = load_100_values_file_test_data
+    valid_json_path = tmp_path / "100_values.json"
+
+    # Save the loaded data to a temporary file
+    with valid_json_path.open('w') as file:
+        json.dump(data, file)
+
+    output_file_path = tmp_path / "processed_data.json"
+
+    # Initialize DataProcessor with the temporary file path
+    processor = DataProcessor(valid_json_path)
+    processor.process_data()
+    processor.save_processed_data(output_file_path)
+
+    # Read the processed data
+    with output_file_path.open('r') as file:
+        processed_data = json.load(file)
+
+    # Assert processed data
+    assert_100_values_processed_data(processed_data)
+
+    project_output_path = os.path.join(os.path.dirname(__file__), 'processed_data.json')
+    os.rename(output_file_path, project_output_path)
+
+
+def assert_100_values_processed_data(processed_data):
+    assert processed_data["value1"] == "2021/10/10 10:15:15"
+    assert processed_data["value2"] == "pbmbmbmbfdsgfdstrrrgfgfffgfgfgfds"
+    assert processed_data["value3"] == ["bar", "baz", "foo", 5]
+    assert processed_data["value4"] == "2021/10/10 10:15:15"
+    assert processed_data["value5"] == "5eulavelpmaxe"
+    assert processed_data["value6"] == "6eulavelpmaxerehtona"
+    assert processed_data["value7"] == [1, 2, 3, 4, 5]
+    assert processed_data["value8"] == "2021/01/01 01:01:01"
+    assert processed_data["value97"] == ["melon", "berry", "peach"]
+    assert processed_data["value98"] == "2021/04/04 04:04:04"
+    assert processed_data["value99"] == "99eulavroftxetlanif"
+    assert processed_data["value100"] == "derdnuhenoeulav"
